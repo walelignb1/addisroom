@@ -1,0 +1,224 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum Role {
+  LANDLORD
+  TENANT
+  AGENT
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  NON_BINARY
+  PREFER_NOT_TO_SAY
+}
+
+enum RoomType {
+  ROOM
+  STUDIO
+  APARTMENT
+}
+
+enum PropertyType {
+  CONDOMINIUM
+  APARTMENT
+  VILLA
+  HOUSE
+  SHARED_HOUSE
+  SHOP
+}
+
+enum BedroomCount {
+  ONE   // bale 1 kifl
+  TWO   // bale 2 kifl
+  THREE_PLUS
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+enum PaymentPurpose {
+  LISTING_FEE
+}
+
+enum OtpChannel {
+  EMAIL
+  SMS
+}
+
+enum ViewingStatus {
+  PROPOSED
+  ACCEPTED
+  DECLINED
+  CANCELLED
+}
+
+model Profile {
+  id              String   @id @default(cuid())
+  name            String
+  phone           String   @unique
+  email           String?  @unique
+  passwordHash    String?
+  role            Role     @default(TENANT)
+  verified        Boolean  @default(false)
+  age             Int?
+  gender          Gender?
+  photoUrl        String?
+  bio             String?
+  livesInProperty Boolean?
+  smokingOk       Boolean?
+  petsOk          Boolean?
+  profileComplete Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  listings          Listing[]
+  sentMessages      Message[]         @relation("FromProfile")
+  receivedMessages  Message[]         @relation("ToProfile")
+  savedListings     SavedListing[]
+  payments          Payment[]
+  viewingProposed   ViewingSchedule[] @relation("ViewingFrom")
+  viewingReceived   ViewingSchedule[] @relation("ViewingTo")
+}
+
+model Listing {
+  id            String       @id @default(cuid())
+  title         String
+  description   String
+  city          String       @default("Addis Ababa")
+  neighborhood  String
+  roadName      String?
+  latitude      Float?
+  longitude     Float?
+  roomType      RoomType     @default(ROOM)
+  propertyType  PropertyType @default(APARTMENT)
+  bedrooms      BedroomCount @default(ONE)
+  furnished     Boolean      @default(false)
+  priceBirr     Int
+  depositBirr   Int?
+  availableFrom DateTime @default(now())
+  published     Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+
+  postedById String
+  postedBy   Profile @relation(fields: [postedById], references: [id], onDelete: Cascade)
+
+  images           ListingImage[]
+  messages         Message[]
+  savedBy          SavedListing[]
+  payments         Payment[]
+  viewingSchedules ViewingSchedule[]
+
+  @@index([city, neighborhood])
+  @@index([createdAt])
+  @@index([propertyType, bedrooms])
+  @@index([availableFrom])
+  @@index([published])
+}
+
+model ListingImage {
+  id        String   @id @default(cuid())
+  url       String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([listingId, sortOrder])
+}
+
+model SavedListing {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  profileId String
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, listingId])
+  @@index([profileId])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  body      String
+  createdAt DateTime @default(now())
+
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  fromProfileId String
+  from          Profile @relation("FromProfile", fields: [fromProfileId], references: [id], onDelete: Cascade)
+
+  toProfileId String
+  to          Profile @relation("ToProfile", fields: [toProfileId], references: [id], onDelete: Cascade)
+
+  @@index([listingId, createdAt])
+  @@index([toProfileId, createdAt])
+}
+
+model ViewingSchedule {
+  id          String        @id @default(cuid())
+  proposedAt  DateTime
+  note        String?
+  status      ViewingStatus @default(PROPOSED)
+  createdAt   DateTime      @default(now())
+  respondedAt DateTime?
+
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  fromProfileId String
+  from          Profile @relation("ViewingFrom", fields: [fromProfileId], references: [id], onDelete: Cascade)
+
+  toProfileId String
+  to          Profile @relation("ViewingTo", fields: [toProfileId], references: [id], onDelete: Cascade)
+
+  @@index([listingId, proposedAt])
+  @@index([toProfileId, status])
+}
+
+model OtpChallenge {
+  id        String     @id @default(cuid())
+  channel   OtpChannel
+  target    String
+  codeHash  String
+  name      String
+  expiresAt DateTime
+  attempts  Int        @default(0)
+  createdAt DateTime   @default(now())
+
+  @@index([target, createdAt])
+}
+
+model Payment {
+  id              String         @id @default(cuid())
+  amountBirr      Int
+  status          PaymentStatus  @default(PENDING)
+  purpose         PaymentPurpose @default(LISTING_FEE)
+  txRef           String         @unique
+  chapaReference  String?
+  createdAt       DateTime       @default(now())
+  completedAt     DateTime?
+
+  profileId String
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, createdAt])
+  @@index([listingId])
+  @@index([txRef])
+}

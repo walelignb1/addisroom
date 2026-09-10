@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f0f6fc;
+  --foreground: #152536;
+  --surface: #ffffff;
+  --muted: #647d92;
+  --border: #d0e3f2;
+  --brand-50: #eef6fc;
+  --brand-100: #dceefb;
+  --brand-200: #b8ddf7;
+  --brand-300: #8ec5ef;
+  --brand-500: #4f9fd4;
+  --brand-600: #3d8fc4;
+  --brand-700: #3278ad;
+  --brand-800: #2a628f;
+  --brand-900: #1f4a6e;
+  --accent: #5eb8e8;
+  --success: #3d9a7a;
+  --hero-from: #e3f2fb;
+  --hero-via: #c8e4f6;
+  --hero-to: #a8d4ef;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer components {
+  .btn-primary {
+    @apply rounded-xl bg-gradient-to-r from-[var(--brand-600)] to-[var(--accent)] font-semibold text-white shadow-lg shadow-blue-400/20 transition hover:from-[var(--brand-700)] hover:to-[var(--brand-500)] hover:shadow-xl active:scale-[0.99];
+  }
+
+  .card {
+    @apply rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-sm;
+  }
+
+  .input-field {
+    @apply h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 outline-none focus:border-[var(--brand-500)] focus:ring-2 focus:ring-[var(--brand-500)]/20;
+  }
+
+  .link-brand {
+    @apply font-semibold text-[var(--brand-700)] hover:underline;
+  }
+
+  .home-hero {
+    @apply -mx-4 rounded-none border-b border-[var(--brand-200)]/60 bg-gradient-to-b from-[var(--hero-from)] via-[var(--hero-via)] to-[var(--background)] px-4 pb-12 pt-2 sm:-mx-0 sm:rounded-3xl sm:border sm:pb-14 sm:pt-4;
+  }
+
+  .home-hero-grid {
+    background-image:
+      linear-gradient(to right, rgba(255, 255, 255, 0.35) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.35) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse 80% 70% at 50% 30%, black 20%, transparent 75%);
+  }
+
+  .home-hero-title {
+    letter-spacing: -0.03em;
+  }
+
+  .home-hero-subtitle {
+    letter-spacing: -0.01em;
+  }
+
+  .home-search-card {
+    box-shadow:
+      0 4px 6px -1px rgba(42, 98, 143, 0.06),
+      0 20px 50px -12px rgba(42, 98, 143, 0.15);
+  }
+
+  .home-input {
+    @apply rounded-xl border border-[var(--border)] bg-white px-3.5 text-[var(--foreground)] shadow-sm outline-none transition placeholder:text-slate-400 focus:border-[var(--brand-400)] focus:ring-2 focus:ring-[var(--brand-300)]/40;
+  }
+}

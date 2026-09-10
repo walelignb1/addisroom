@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem -Path \"$env:TEMP\\\\WinGet\" -Recurse -ErrorAction SilentlyContinue | Select-Object FullName, Length, LastWriteTime | Sort-Object LastWriteTime -Descending | Select-Object -First 10)"
+    ]
+  }
+}
