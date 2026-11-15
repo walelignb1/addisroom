@@ -11,20 +11,31 @@ export default async function LoginPage(props: {
   const next = (sp.next ?? "").trim();
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--background)] px-4 py-12">
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-[var(--background)]">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -left-24 top-20 h-72 w-72 rounded-full bg-sky-400/20 blur-3xl" />
         <div className="absolute -right-24 bottom-20 h-72 w-72 rounded-full bg-blue-500/15 blur-3xl" />
       </div>
 
-      <div className="relative w-full max-w-md">
-        <div className="mb-6 flex justify-end">
-          <Suspense fallback={null}>
-            <LanguageSwitcher />
-          </Suspense>
-        </div>
+      <header className="relative mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4">
+        <a
+          href={lang !== "en" ? `/?lang=${lang}` : "/"}
+          className="flex items-center gap-2.5"
+        >
+          <span className="logo-mark">AR</span>
+          <span className="text-lg font-bold leading-none tracking-tight text-[var(--brand-900)]">
+            AddisRoom
+          </span>
+        </a>
+        <Suspense fallback={null}>
+          <LanguageSwitcher />
+        </Suspense>
+      </header>
 
-        <div className="overflow-hidden rounded-3xl border border-white/15 bg-[var(--surface)]/95 p-8 shadow-2xl shadow-blue-950/30 backdrop-blur">
+      <main className="relative flex flex-1 items-center justify-center px-4 pb-16 pt-6">
+        <div className="w-full max-w-md">
+
+        <div className="rise-in overflow-hidden rounded-3xl border border-white/15 bg-[var(--surface)]/95 p-8 shadow-2xl shadow-blue-950/30 backdrop-blur">
           <div className="mb-8 text-center">
             <p className="text-sm font-semibold uppercase tracking-widest text-[var(--brand-600)]">
               AddisRoom
@@ -39,7 +50,8 @@ export default async function LoginPage(props: {
 
           <LoginForm lang={lang} next={next} />
         </div>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

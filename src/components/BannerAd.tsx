@@ -1,20 +1,47 @@
-import { parseLang, t, type Lang } from "@/lib/i18n";
-
-export function BannerAd({ lang }: { lang: Lang }) {
-  return (
-    <aside
-      className="relative overflow-hidden rounded-2xl border border-[var(--border)] bg-gradient-to-r from-[var(--brand-50)] via-[var(--surface)] to-[var(--brand-100)] px-5 py-4 shadow-sm"
-      role="complementary"
-      aria-label={t(lang, "ads.label")}
-    >
-      <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-[var(--brand-200)]/40 blur-2xl" />
-      <p className="text-xs font-semibold uppercase tracking-wider text-[var(--brand-600)]">
+import Image from "next/image";
+import { prisma } from "@/lib/prisma";
+import { t, type Lang } from "@/lib/i18n";
+export async function BannerAd({ lang }: { lang: Lang }) {
+  const sponsor = await prisma.sponsorship.findUnique({
+    where: { activeSlot: 1 },
+  });
+  if (!sponsor) return null;
+  const content = (
+    <>
+      <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--brand-700)]">
         {t(lang, "ads.sponsored")}
       </p>
-      <p className="mt-1 text-sm font-medium text-[var(--foreground)]">
-        {t(lang, "ads.headline")}
+      {sponsor.imageUrl && (
+        <div className="relative h-36 my-3">
+          <Image
+            src={sponsor.imageUrl}
+            alt=""
+            fill
+            sizes="(max-width:640px) 100vw, 900px"
+            className="object-cover rounded-lg"
+          />
+        </div>
+      )}
+      <h3 className="text-sm font-semibold mt-3">{sponsor.headline}</h3>
+      <p className="text-xs text-[var(--muted)] mt-1 leading-relaxed">
+        {sponsor.body}
       </p>
-      <p className="mt-1 text-xs text-[var(--muted)]">{t(lang, "ads.body")}</p>
+    </>
+  );
+  return (
+    <aside aria-label={t(lang, "ads.label")} className="sponsor-banner">
+      {sponsor.linkUrl ? (
+        <a
+          href={sponsor.linkUrl}
+          target="_blank"
+          rel="noopener noreferrer sponsored"
+          className="block"
+        >
+          {content}
+        </a>
+      ) : (
+        content
+      )}
     </aside>
   );
 }

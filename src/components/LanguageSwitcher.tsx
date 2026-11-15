@@ -28,7 +28,7 @@ export function LanguageSwitcher() {
       value={lang}
       onChange={(e) => onChange(parseLang(e.target.value))}
       aria-label="Language"
-      className="h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 text-sm font-medium text-[var(--foreground)] outline-none focus:border-[var(--brand-500)]"
+      className="lang-select"
     >
       {options.map((o) => (
         <option key={o.value} value={o.value}>

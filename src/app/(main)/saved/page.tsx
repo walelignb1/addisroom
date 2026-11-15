@@ -14,7 +14,14 @@ export default async function SavedPage(props: {
   if (me) {
     try {
       const saved = await prisma.savedListing.findMany({
-        where: { profileId: me.id },
+        where: {
+          profileId: me.id,
+          listing: {
+            archivedAt: null,
+            published: true,
+            postedBy: { suspendedAt: null },
+          },
+        },
         orderBy: { createdAt: "desc" },
         include: {
           listing: {

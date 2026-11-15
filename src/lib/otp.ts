@@ -21,6 +21,8 @@ export function normalizeEmail(value: string): string {
 }
 
 export function normalizePhone(value: string): string {
+  if (!/^[+\d\s()-]+$/.test(value))
+    throw new Error("Enter a valid Ethiopian mobile number");
   const digits = value.replace(/\D/g, "");
   if (digits.startsWith("251")) return `+${digits}`;
   if (digits.startsWith("0")) return `+251${digits.slice(1)}`;
@@ -35,14 +37,15 @@ export function parseLoginTarget(
   const value = raw.trim();
   if (channel === OtpChannel.EMAIL) {
     const email = normalizeEmail(value);
-    if (!email.includes("@") || !email.includes(".")) {
+    if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       throw new Error("Enter a valid email address");
     }
     return { target: email, email };
   }
 
   const phone = normalizePhone(value);
-  if (phone.length < 12) throw new Error("Enter a valid Ethiopian phone number");
+  if (!/^\+251[79]\d{8}$/.test(phone))
+    throw new Error("Enter a valid Ethiopian phone number");
   return { target: phone, phone };
 }
 

@@ -22,7 +22,7 @@ export default async function PublicProfilePage(props: {
     where: { id },
     include: {
       listings: {
-        where: { published: true },
+        where: { published: true, archivedAt: null },
         orderBy: { createdAt: "desc" },
         take: 12,
         include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
@@ -30,7 +30,7 @@ export default async function PublicProfilePage(props: {
     },
   });
 
-  if (!profile || !isProfileComplete(profile)) return notFound();
+  if (!profile || profile.suspendedAt || !isProfileComplete(profile)) return notFound();
 
   const verified = isVerifiedBroker(profile);
   const isLandlord =

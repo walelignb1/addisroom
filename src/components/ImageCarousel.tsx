@@ -7,18 +7,20 @@ type Props = {
   images: string[];
   alt: string;
   /** compact = listing card; full = detail page */
-  variant?: "compact" | "full";
+  variant?: "compact" | "full" | "row";
 };
 
 export function ImageCarousel({ images, alt, variant = "compact" }: Props) {
   const [index, setIndex] = useState(0);
   const urls = images.length > 0 ? images : [];
-  const height = variant === "full" ? "h-72 sm:h-96" : "h-44";
+  const height =
+    variant === "full" ? "h-72 sm:h-96" : variant === "row" ? "h-56 sm:h-full" : "h-56";
+  const corners = variant === "row" ? "" : "rounded-t-2xl";
 
   if (urls.length === 0) {
     return (
       <div
-        className={`${height} flex items-center justify-center rounded-t-2xl bg-gradient-to-br from-slate-100 to-slate-200 text-sm text-slate-500`}
+        className={`${height} ${corners} flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 text-sm text-slate-500`}
       >
         No photos
       </div>
@@ -29,15 +31,21 @@ export function ImageCarousel({ images, alt, variant = "compact" }: Props) {
   const next = () => setIndex((i) => (i === urls.length - 1 ? 0 : i + 1));
 
   return (
-    <div className={`relative ${height} overflow-hidden rounded-t-2xl bg-slate-100`}>
+    <div className={`relative ${height} ${corners} overflow-hidden bg-slate-100`}>
       <Image
+        key={urls[index]}
         src={urls[index]!}
         alt={`${alt} — photo ${index + 1}`}
         fill
-        className="object-cover"
+        className="rise-fade object-cover"
         sizes={variant === "full" ? "(max-width: 768px) 100vw, 66vw" : "50vw"}
         priority={index === 0}
       />
+      {variant === "row" ? (
+        <span className="absolute bottom-2 right-2 z-10 rounded-md bg-black/65 px-2 py-0.5 text-xs font-medium text-white">
+          {index + 1} / {urls.length}
+        </span>
+      ) : null}
       {urls.length > 1 ? (
         <>
           <button

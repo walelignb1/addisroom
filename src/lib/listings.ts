@@ -17,5 +17,5 @@ export function isVerifiedBroker(profile: {
   role: string;
   verified: boolean;
 }) {
-  return profile.role === "AGENT" && profile.verified;
+  return profile.verified;
 }

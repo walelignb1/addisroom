@@ -8,10 +8,10 @@ function resolveSqliteUrl(): string {
   const raw = process.env.DATABASE_URL ?? "file:./dev.db";
   if (!raw.startsWith("file:")) return raw;
 
-  const relative = raw.slice("file:".length).replace(/^\/+/, "");
+  const relative = raw.slice("file:".length);
   const absolute = path.isAbsolute(relative)
     ? relative
-    : path.join(process.cwd(), relative);
+    : path.join(/* turbopackIgnore: true */ process.cwd(), relative);
   return `file:${absolute}`;
 }
 

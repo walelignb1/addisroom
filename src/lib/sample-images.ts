@@ -1,8 +1,8 @@
 /** High-quality sample real-estate photos (Unsplash). */
 export const SAMPLE_LISTING_IMAGES = [
   "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&q=80",
-  "https://images.unsplash.com/photo-1502672260066-1c1ef2d93688?w=1200&q=80",
-  "https://images.unsplash.com/photo-1560448204-e02f11c45730?w=1200&q=80",
+  "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=1200&q=80",
+  "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&q=80",
   "https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=1200&q=80",
   "https://images.unsplash.com/photo-1484154218962-a197022b5858?w=1200&q=80",
   "https://images.unsplash.com/photo-1554995207-c18c203602cb?w=1200&q=80",

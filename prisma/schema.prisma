@@ -34,6 +34,11 @@ enum PropertyType {
   SHOP
 }
 
+enum DealType {
+  RENT
+  SALE
+}
+
 enum BedroomCount {
   ONE   // bale 1 kifl
   TWO   // bale 2 kifl
@@ -65,7 +70,7 @@ enum ViewingStatus {
 model Profile {
   id              String   @id @default(cuid())
   name            String
-  phone           String   @unique
+  phone           String?  @unique
   email           String?  @unique
   passwordHash    String?
   role            Role     @default(TENANT)
@@ -79,6 +84,26 @@ model Profile {
   petsOk          Boolean?
   profileComplete Boolean  @default(false)
   createdAt       DateTime @default(now())
+
+  googleSubject String? @unique
+  isAdmin Boolean @default(false)
+  isSuperAdmin Boolean @default(false)
+  suspendedAt DateTime?
+  brokerVerified Boolean @default(false)
+  emailVerifiedAt DateTime?
+  phoneVerifiedAt DateTime?
+  identityStatus String @default("NOT_SUBMITTED")
+  address String?
+  city String?
+  subCity String?
+  woreda String?
+  idType String?
+  idLastFour String?
+  identitySubmittedAt DateTime?
+  identityReviewedAt DateTime?
+  identityReviewNote String?
+  sessions Session[]
+  documents IdentityDocument[]
 
   listings          Listing[]
   sentMessages      Message[]         @relation("FromProfile")
@@ -100,12 +125,16 @@ model Listing {
   longitude     Float?
   roomType      RoomType     @default(ROOM)
   propertyType  PropertyType @default(APARTMENT)
+  dealType      DealType     @default(RENT)
+  areaSqm       Int?
+  floor         Int?
   bedrooms      BedroomCount @default(ONE)
   furnished     Boolean      @default(false)
   priceBirr     Int
   depositBirr   Int?
   availableFrom DateTime @default(now())
   published     Boolean      @default(false)
+  archivedAt DateTime?
   createdAt     DateTime     @default(now())
 
   postedById String
@@ -122,6 +151,7 @@ model Listing {
   @@index([propertyType, bedrooms])
   @@index([availableFrom])
   @@index([published])
+  @@index([dealType, propertyType])
 }
 
 model ListingImage {
@@ -221,4 +251,57 @@ model Payment {
   @@index([profileId, createdAt])
   @@index([listingId])
   @@index([txRef])
+}
+
+model Session {
+  tokenHash String @id
+  profileId String
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  purpose String @default("LOGIN")
+  expiresAt DateTime
+  @@index([profileId])
+}
+
+model IdentityDocument {
+  id String @id @default(cuid())
+  profileId String
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  kind String
+  mimeType String
+  encryptedData Bytes
+  createdAt DateTime @default(now())
+  @@unique([profileId, kind])
+}
+
+model AdminAudit {
+  id String @id @default(cuid())
+  actorId String
+  profileId String
+  decision String
+  note String
+  createdAt DateTime @default(now())
+}
+
+model AuthAttempt {
+  key String @id
+  count Int @default(0)
+  resetAt DateTime
+}
+
+model Sponsorship {
+  id String @id @default(cuid())
+  headline String
+  body String
+  imageUrl String?
+  linkUrl String?
+  activeSlot Int? @unique
+  createdAt DateTime @default(now())
+}
+
+model OAuthLogin {
+  stateHash String @id
+  nonce String
+  verifier String
+  next String
+  expiresAt DateTime
 }

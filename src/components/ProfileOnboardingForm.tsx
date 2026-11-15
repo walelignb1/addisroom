@@ -2,10 +2,12 @@
 
 import { useActionState } from "react";
 import { Role } from "@prisma/client";
-import { completeProfile, type CompleteProfileResult } from "@/lib/profile-actions";
+import {
+  completeProfile,
+  type CompleteProfileResult,
+} from "@/lib/profile-actions";
 import { GENDERS } from "@/lib/profile";
 import { ROLES } from "@/lib/addis";
-import { AgentVerifiedField } from "@/components/AgentVerifiedField";
 import { type Lang, t } from "@/lib/i18n";
 
 export function ProfileOnboardingForm({
@@ -26,7 +28,9 @@ export function ProfileOnboardingForm({
 
   return (
     <form action={action} className="space-y-5">
-      {next.startsWith("/") ? <input type="hidden" name="next" value={next} /> : null}
+      {next.startsWith("/") ? (
+        <input type="hidden" name="next" value={next} />
+      ) : null}
 
       <div>
         <label className="text-sm font-medium">{t(lang, "profile.role")}</label>
@@ -46,7 +50,9 @@ export function ProfileOnboardingForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="text-sm font-medium">{t(lang, "profile.age")}</label>
+          <label className="text-sm font-medium">
+            {t(lang, "profile.age")}
+          </label>
           <input
             name="age"
             type="number"
@@ -57,7 +63,9 @@ export function ProfileOnboardingForm({
           />
         </div>
         <div>
-          <label className="text-sm font-medium">{t(lang, "profile.gender")}</label>
+          <label className="text-sm font-medium">
+            {t(lang, "profile.gender")}
+          </label>
           <select name="gender" required className={inputClass} defaultValue="">
             <option value="" disabled>
               {t(lang, "profile.selectGender")}
@@ -72,15 +80,18 @@ export function ProfileOnboardingForm({
       </div>
 
       <div>
-        <label className="text-sm font-medium">{t(lang, "profile.photo")}</label>
+        <label className="text-sm font-medium">
+          Public profile photo URL (optional)
+        </label>
         <input
           name="photoUrl"
           type="url"
-          required
           placeholder="https://example.com/photo.jpg"
           className={inputClass}
         />
-        <p className="mt-1 text-xs text-[var(--muted)]">{t(lang, "profile.photoHint")}</p>
+        <p className="mt-1 text-xs text-[var(--muted)]">
+          Your identity portrait is uploaded privately in the next step.
+        </p>
       </div>
 
       <div>
@@ -104,9 +115,6 @@ export function ProfileOnboardingForm({
             <input type="radio" name="livesInProperty" value="no" />
             {t(lang, "profile.livesInNo")}
           </label>
-        </div>
-        <div className="mt-4">
-          <AgentVerifiedField />
         </div>
       </fieldset>
 

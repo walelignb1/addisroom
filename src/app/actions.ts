@@ -2,15 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import {
-  BedroomCount,
-  PropertyType,
-  RoomType,
-} from "@prisma/client";
+import { BedroomCount, PropertyType, RoomType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getNeighborhoodCoords } from "@/lib/geo";
 import { parseImageUrls, pickSampleImages } from "@/lib/sample-images";
-import { getSessionProfileId } from "@/lib/auth";
+import { requireApprovedProfile } from "@/lib/auth";
 import { canPostListing } from "@/lib/monetization";
 import {
   containsPhoneNumber,
@@ -50,7 +46,7 @@ function optionalInt(fd: FormData, key: string) {
 }
 
 export async function createListing(fd: FormData) {
-  const sessionId = await getSessionProfileId();
+  const sessionId = (await requireApprovedProfile()).id;
   if (!sessionId) redirect("/login?next=/listings/new");
   const profileId = sessionId;
 
@@ -71,12 +67,19 @@ export async function createListing(fd: FormData) {
   const neighborhood = requiredString(fd, "neighborhood");
   const roadName = optionalString(fd, "roadName");
   // Disabled on the client for property type SHOP, so they may be absent here.
-  const roomType = (optionalString(fd, "roomType") as RoomType | undefined) ?? "ROOM";
+  const roomType =
+    (optionalString(fd, "roomType") as RoomType | undefined) ?? "ROOM";
   const propertyType = requiredString(fd, "propertyType") as PropertyType;
-  const bedrooms = (optionalString(fd, "bedrooms") as BedroomCount | undefined) ?? "ONE";
+  const bedrooms =
+    (optionalString(fd, "bedrooms") as BedroomCount | undefined) ?? "ONE";
   const furnished = fd.get("furnished") === "on";
   const priceBirr = requiredInt(fd, "priceBirr");
-  const depositBirr = optionalInt(fd, "depositBirr");
+  const dealType = optionalString(fd, "dealType") === "SALE" ? "SALE" : "RENT";
+  // A deposit only makes sense for rentals.
+  const depositBirr =
+    dealType === "RENT" ? optionalInt(fd, "depositBirr") : undefined;
+  const areaSqm = optionalInt(fd, "areaSqm");
+  const floor = optionalInt(fd, "floor");
   const availableFromRaw = requiredString(fd, "availableFrom");
   const availableFrom = new Date(availableFromRaw);
   if (Number.isNaN(availableFrom.getTime())) {
@@ -98,6 +101,9 @@ export async function createListing(fd: FormData) {
       longitude: coords?.lng,
       roomType,
       propertyType,
+      dealType,
+      areaSqm,
+      floor,
       bedrooms,
       furnished,
       priceBirr,
@@ -127,7 +133,7 @@ export async function createListing(fd: FormData) {
 }
 
 export async function sendMessage(fd: FormData) {
-  const sessionId = await getSessionProfileId();
+  const sessionId = (await requireApprovedProfile()).id;
   if (!sessionId) redirect("/login");
 
   const listingId = requiredString(fd, "listingId");
@@ -139,9 +145,21 @@ export async function sendMessage(fd: FormData) {
 
   const listing = await prisma.listing.findUnique({
     where: { id: listingId },
-    select: { id: true, postedById: true },
+    select: {
+      id: true,
+      postedById: true,
+      archivedAt: true,
+      published: true,
+      postedBy: { select: { suspendedAt: true } },
+    },
   });
-  if (!listing) throw new Error("Listing not found");
+  if (
+    !listing ||
+    listing.archivedAt ||
+    !listing.published ||
+    listing.postedBy.suspendedAt
+  )
+    throw new Error("Listing not found");
 
   await prisma.message.create({
     data: {

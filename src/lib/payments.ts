@@ -6,12 +6,18 @@ import { LISTING_FEE_BIRR } from "@/lib/monetization";
 import { chapaInitialize, chapaVerify } from "@/lib/chapa";
 
 function getAppUrl(): string {
-  return (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  return (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(
+    /\/$/,
+    "",
+  );
 }
 
 function splitName(name: string): { firstName: string; lastName: string } {
   const parts = name.trim().split(/\s+/);
-  return { firstName: parts[0] ?? name, lastName: parts.slice(1).join(" ") || parts[0] };
+  return {
+    firstName: parts[0] ?? name,
+    lastName: parts.slice(1).join(" ") || parts[0],
+  };
 }
 
 /** Ethiopian local mobile format Chapa expects: 09XXXXXXXX / 07XXXXXXXX. */
@@ -46,8 +52,14 @@ export async function initializeListingPayment({
     include: { postedBy: true },
   });
   if (!listing) throw new Error("Listing not found");
-  if (listing.postedById !== profileId) throw new Error("This is not your listing");
-  if (listing.published) throw new Error("Listing is already paid and published");
+  if (listing.postedById !== profileId)
+    throw new Error("This is not your listing");
+  if (listing.postedBy.identityStatus !== "APPROVED")
+    throw new Error("Identity approval is required before payment.");
+  if (listing.archivedAt || listing.postedBy.suspendedAt)
+    throw new Error("This listing is unavailable.");
+  if (listing.published)
+    throw new Error("Listing is already paid and published");
 
   const txRef = buildTxRef(listingId);
   const payment = await prisma.payment.create({
@@ -76,7 +88,7 @@ export async function initializeListingPayment({
       email: listing.postedBy.email ?? undefined,
       firstName,
       lastName,
-      phoneNumber: normalizeEthiopianPhone(listing.postedBy.phone),
+      phoneNumber: normalizeEthiopianPhone(listing.postedBy.phone ?? ""),
       title: "AddisRoom fee",
       description: `Listing fee for "${listing.title}"`,
     });
@@ -141,7 +153,10 @@ export async function verifyAndFinalizePayment(
   return { status: PaymentStatus.PENDING, listingId: payment.listingId };
 }
 
-export async function getListingPaymentForUser(listingId: string, profileId: string | null) {
+export async function getListingPaymentForUser(
+  listingId: string,
+  profileId: string | null,
+) {
   if (!profileId) return null;
   try {
     return await prisma.payment.findFirst({

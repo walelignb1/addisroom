@@ -1,6 +1,7 @@
 "use client";
 
-import { Suspense } from "react";
+import Link from "next/link";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { logout } from "@/lib/auth-actions";
@@ -17,9 +18,32 @@ function SignInButton() {
   }
 
   return (
-    <a href={href("/login")} className="btn-primary px-4 py-2 text-sm">
+    <a href={href("/login")} className="header-btn btn-primary btn-shine">
       {t(lang, "nav.login")}
     </a>
+  );
+}
+
+function MainLinks({ showPost }: { showPost: boolean }) {
+  const searchParams = useSearchParams();
+  const lang = parseLang(searchParams.get("lang"));
+  const amp = lang !== "en" ? `&lang=${lang}` : "";
+  const qs = lang !== "en" ? `?lang=${lang}` : "";
+
+  return (
+    <div className="mr-auto hidden items-center gap-4 pl-1 sm:flex sm:gap-7 sm:pl-8">
+      <a href={`/search?deal=rent${amp}`} className="nav-link">
+        {t(lang, "nav.rent")}
+      </a>
+      <a href={`/search?deal=sale${amp}`} className="nav-link">
+        {t(lang, "nav.buy")}
+      </a>
+      {showPost ? (
+        <a href={`/listings/new${qs}`} className="nav-link hidden md:block">
+          {t(lang, "nav.post")}
+        </a>
+      ) : null}
+    </div>
   );
 }
 
@@ -31,7 +55,7 @@ function LogOutButton() {
     <form action={logout}>
       <button
         type="submit"
-        className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--muted)] transition hover:border-[var(--brand-300)] hover:text-[var(--brand-700)]"
+        className="header-btn border border-[var(--border)] font-medium text-[var(--muted)] transition hover:border-[var(--brand-300)] hover:text-[var(--brand-700)]"
       >
         {t(lang, "nav.logout")}
       </button>
@@ -39,22 +63,46 @@ function LogOutButton() {
   );
 }
 
-export function AppHeader({ loggedIn = false }: { loggedIn?: boolean }) {
+export function AppHeader({
+  loggedIn = false,
+  isAdmin = false,
+}: {
+  loggedIn?: boolean;
+  isAdmin?: boolean;
+}) {
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 12);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
-    <header className="sticky top-0 z-40 border-b border-[var(--border)]/80 bg-[var(--surface)]/90 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3.5 sm:py-4">
-        <a href="/" className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--brand-600)] to-[var(--accent)] text-sm font-bold text-white shadow-md shadow-blue-300/30">
-            AR
-          </span>
-          <span className="text-lg font-bold tracking-tight text-[var(--brand-900)]">
+    <header className="site-header" data-scrolled={scrolled}>
+      <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4">
+        <Link
+          href="/"
+          aria-label="AddisRoom home"
+          className="flex shrink-0 items-center gap-2.5"
+        >
+          <span className="logo-mark">AR</span>
+          <span className="hidden text-lg font-bold leading-none tracking-tight text-[var(--brand-900)] sm:block">
             AddisRoom
           </span>
-        </a>
-        <nav className="flex items-center gap-2 text-sm">
+        </Link>
+        <nav className="flex min-w-0 flex-1 items-center justify-end gap-2.5 text-sm">
+          <Suspense fallback={<div className="mr-auto" />}>
+            <MainLinks showPost={!loggedIn} />
+          </Suspense>
+          {isAdmin && (
+            <a href="/admin" className="nav-link">
+              Admin
+            </a>
+          )}
           <Suspense
             fallback={
-              <div className="h-9 w-24 rounded-lg border border-[var(--border)] bg-[var(--brand-50)]" />
+              <div className="h-10 w-28 rounded-xl border border-[var(--border)] bg-[var(--brand-50)]" />
             }
           >
             <LanguageSwitcher />

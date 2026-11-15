@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { ViewingStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getSessionProfileId } from "@/lib/auth";
+import { requireApprovedProfile } from "@/lib/auth";
 
 export type ViewingActionResult = { ok: true } | { ok: false; error: string };
 
@@ -13,7 +13,7 @@ export async function proposeViewing(
   fd: FormData,
 ): Promise<ViewingActionResult> {
   try {
-    const profileId = await getSessionProfileId();
+    const profileId = (await requireApprovedProfile()).id;
     if (!profileId) redirect("/login");
 
     const listingId = String(fd.get("listingId") ?? "").trim();
@@ -31,11 +31,25 @@ export async function proposeViewing(
 
     const listing = await prisma.listing.findUnique({
       where: { id: listingId },
-      select: { postedById: true },
+      select: {
+        postedById: true,
+        archivedAt: true,
+        published: true,
+        postedBy: { select: { suspendedAt: true } },
+      },
     });
-    if (!listing) return { ok: false, error: "Listing not found" };
+    if (
+      !listing ||
+      listing.archivedAt ||
+      !listing.published ||
+      listing.postedBy.suspendedAt
+    )
+      return { ok: false, error: "Listing not found" };
     if (listing.postedById === profileId) {
-      return { ok: false, error: "You cannot schedule a viewing on your own listing" };
+      return {
+        ok: false,
+        error: "You cannot schedule a viewing on your own listing",
+      };
     }
 
     await prisma.viewingSchedule.create({
@@ -63,7 +77,7 @@ export async function respondToViewing(
   fd: FormData,
 ): Promise<ViewingActionResult> {
   try {
-    const profileId = await getSessionProfileId();
+    const profileId = (await requireApprovedProfile()).id;
     if (!profileId) redirect("/login");
 
     const viewingId = String(fd.get("viewingId") ?? "").trim();
@@ -104,6 +118,8 @@ export async function respondToViewing(
 
 export async function getListingViewings(listingId: string, profileId: string) {
   try {
+    const me = await requireApprovedProfile();
+    if (me.id !== profileId) return [];
     return await prisma.viewingSchedule.findMany({
       where: {
         listingId,

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { MotionProvider } from "@/components/motion/Reveal";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AddisRoom — Rent rooms in Addis Ababa",
+  title: "AddisRoom — Rent or buy a home in Addis Ababa",
   description:
-    "Connect landlords, tenants, and agents to rent rooms in Addis Ababa.",
+    "Search homes to rent or buy in Addis Ababa by area, price and size, with a map view and verified brokers.",
 };
 
 export default function RootLayout({
@@ -26,10 +27,11 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      data-scroll-behavior="smooth"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-[var(--background)] text-slate-900">
-        {children}
+        <MotionProvider>{children}</MotionProvider>
       </body>
     </html>
   );

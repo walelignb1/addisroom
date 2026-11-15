@@ -2,17 +2,15 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
-import { loginWithPassword, type LoginPasswordResult } from "@/lib/auth-actions";
+import {
+  loginWithPassword,
+  type LoginPasswordResult,
+} from "@/lib/auth-actions";
 import { t, type Lang } from "@/lib/i18n";
+import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { PasswordInput } from "@/components/PasswordInput";
 
-export function LoginForm({
-  lang,
-  next,
-}: {
-  lang: Lang;
-  next: string;
-}) {
+export function LoginForm({ lang, next }: { lang: Lang; next: string }) {
   const [loginState, loginAction, loginPending] = useActionState<
     LoginPasswordResult | null,
     FormData
@@ -27,61 +25,69 @@ export function LoginForm({
   const signupHref = `/signup${signupParams.toString() ? `?${signupParams}` : ""}`;
 
   return (
-    <form action={loginAction} className="space-y-4">
-      {next.startsWith("/") ? (
-        <input type="hidden" name="next" value={next} />
-      ) : null}
-      <div>
-        <label htmlFor="contact" className="text-sm font-medium">
-          {t(lang, "login.contact")}
-        </label>
-        <input
-          id="contact"
-          name="contact"
-          type="text"
-          required
-          autoComplete="username"
-          autoCapitalize="none"
-          autoCorrect="off"
-          spellCheck={false}
-          placeholder="09xxxxxxxx or you@email.com"
-          className={inputClass}
-        />
+    <div className="space-y-5">
+      <GoogleSignInButton next={next} lang={lang} />
+      <div className="flex items-center gap-3 text-xs text-[var(--muted)]">
+        <span className="h-px flex-1 bg-[var(--border)]" />
+        {t(lang, "signup.orEmail")}
+        <span className="h-px flex-1 bg-[var(--border)]" />
       </div>
-      <div>
-        <label htmlFor="password" className="text-sm font-medium">
-          {t(lang, "login.password")}
-        </label>
-        <PasswordInput
-          lang={lang}
-          id="password"
-          name="password"
-          required
-          autoComplete="current-password"
-          className={inputClass}
-        />
-      </div>
-      {loginState && !loginState.ok ? (
-        <p className="text-sm text-red-600" role="alert">
-          {loginState.error}
-        </p>
-      ) : null}
-      <button
-        type="submit"
-        disabled={loginPending}
-        className="btn-primary h-12 w-full disabled:opacity-60"
-      >
-        {loginPending ? "…" : t(lang, "login.signIn")}
-      </button>
-      <p className="text-center text-sm text-[var(--muted)]">
-        {t(lang, "login.noAccount")}{" "}
-        <Link
-          href={signupHref}
-          className="font-medium text-[var(--brand-600)] hover:underline"
+      <form action={loginAction} className="space-y-4">
+        {next.startsWith("/") ? (
+          <input type="hidden" name="next" value={next} />
+        ) : null}
+        <div>
+          <label htmlFor="contact" className="text-sm font-medium">
+            {t(lang, "login.contact")}
+          </label>
+          <input
+            id="contact"
+            name="contact"
+            type="text"
+            required
+            autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            placeholder="09xxxxxxxx or you@email.com"
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label htmlFor="password" className="text-sm font-medium">
+            {t(lang, "login.password")}
+          </label>
+          <PasswordInput
+            lang={lang}
+            id="password"
+            name="password"
+            required
+            autoComplete="current-password"
+            className={inputClass}
+          />
+        </div>
+        {loginState && !loginState.ok ? (
+          <p className="text-sm text-red-600" role="alert">
+            {loginState.error}
+          </p>
+        ) : null}
+        <button
+          type="submit"
+          disabled={loginPending}
+          className="btn-primary h-12 w-full disabled:opacity-60"
         >
-          {t(lang, "login.createAccount")}
-        </Link>
-      </p>
-    </form>
+          {loginPending ? "…" : t(lang, "login.signIn")}
+        </button>
+        <p className="text-center text-sm text-[var(--muted)]">
+          {t(lang, "login.noAccount")}{" "}
+          <Link
+            href={signupHref}
+            className="font-medium text-[var(--brand-600)] hover:underline"
+          >
+            {t(lang, "login.createAccount")}
+          </Link>
+        </p>
+      </form>
+    </div>
   );
 }

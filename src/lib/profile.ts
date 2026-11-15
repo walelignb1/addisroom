@@ -20,7 +20,6 @@ export function isProfileComplete(p: ProfileFields): boolean {
   if (p.profileComplete) return true;
   if (!p.age || p.age < 18 || p.age > 100) return false;
   if (!p.gender) return false;
-  if (!p.photoUrl?.trim()) return false;
   if (p.role === Role.LANDLORD || p.role === Role.AGENT) {
     if (p.livesInProperty === null || p.livesInProperty === undefined) {
       return false;

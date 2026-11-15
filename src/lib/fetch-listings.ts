@@ -1,10 +1,6 @@
 import { BedroomCount, PropertyType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import {
-  getNeighborhoodCoords,
-  listingCoords,
-  haversineKm,
-} from "@/lib/geo";
+import { getNeighborhoodCoords, listingCoords, haversineKm } from "@/lib/geo";
 
 /** Shape required by homepage listing cards */
 export type HomeListing = {
@@ -15,6 +11,8 @@ export type HomeListing = {
   roadName: string | null;
   roomType: string;
   propertyType: string;
+  dealType: string;
+  areaSqm: number | null;
   bedrooms: string;
   furnished: boolean;
   priceBirr: number;
@@ -27,6 +25,7 @@ export type HomeListing = {
     name: string;
     role: string;
     verified: boolean;
+    brokerVerified?: boolean;
     profileComplete: boolean;
     photoUrl: string | null;
   };
@@ -50,6 +49,8 @@ function normalizeListing(raw: {
   roadName?: string | null;
   roomType: string;
   propertyType?: string;
+  dealType?: string;
+  areaSqm?: number | null;
   bedrooms?: string;
   furnished: boolean;
   priceBirr: number;
@@ -62,6 +63,7 @@ function normalizeListing(raw: {
     name: string;
     role: string;
     verified?: boolean;
+    brokerVerified?: boolean;
     profileComplete?: boolean;
     photoUrl?: string | null;
   };
@@ -74,6 +76,8 @@ function normalizeListing(raw: {
     roadName: raw.roadName ?? null,
     roomType: raw.roomType,
     propertyType: raw.propertyType ?? "APARTMENT",
+    dealType: raw.dealType ?? "RENT",
+    areaSqm: raw.areaSqm ?? null,
     bedrooms: raw.bedrooms ?? "ONE",
     furnished: raw.furnished,
     priceBirr: raw.priceBirr,
@@ -86,6 +90,7 @@ function normalizeListing(raw: {
       name: raw.postedBy.name,
       role: raw.postedBy.role,
       verified: Boolean(raw.postedBy.verified),
+      brokerVerified: Boolean(raw.postedBy.brokerVerified),
       profileComplete: Boolean(raw.postedBy.profileComplete),
       photoUrl: raw.postedBy.photoUrl ?? null,
     },
@@ -145,6 +150,8 @@ export async function fetchHomeListings(
 
   const where = {
     published: true,
+    archivedAt: null,
+    postedBy: { suspendedAt: null },
     ...(neighborhood && !radiusKm ? { neighborhood } : {}),
     ...(filters.bedrooms ? { bedrooms: filters.bedrooms } : {}),
     ...(filters.propertyType ? { propertyType: filters.propertyType } : {}),
@@ -164,6 +171,7 @@ export async function fetchHomeListings(
     name: true,
     role: true,
     verified: true,
+    brokerVerified: true,
     profileComplete: true,
     photoUrl: true,
   };
@@ -219,7 +227,10 @@ export async function fetchHomeListings(
 
       return { listings: listings.slice(0, 30), usedFallback: true };
     } catch (minimalError) {
-      console.error("[AddisRoom] listing findMany (minimal) failed:", minimalError);
+      console.error(
+        "[AddisRoom] listing findMany (minimal) failed:",
+        minimalError,
+      );
       const fallback = applyClientFilters(FALLBACK_LISTINGS, filters);
       return { listings: fallback, usedFallback: true };
     }

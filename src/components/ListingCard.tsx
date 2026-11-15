@@ -16,6 +16,8 @@ type ListingWithRelations = {
   roadName?: string | null;
   roomType: string;
   propertyType?: string;
+  dealType?: string;
+  areaSqm?: number | null;
   bedrooms?: string;
   furnished: boolean;
   priceBirr: number;
@@ -26,6 +28,7 @@ type ListingWithRelations = {
     name: string;
     role: string;
     verified: boolean;
+    brokerVerified?: boolean;
     profileComplete?: boolean;
     photoUrl?: string | null;
   };
@@ -60,43 +63,88 @@ export function ListingCard({
     : null;
 
   return (
-    <article className="group relative overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-sm transition hover:border-[var(--brand-300)] hover:shadow-lg hover:shadow-blue-200/20">
+    <article className="listing-card group">
       {showSave ? (
         <SaveListingButton listingId={listing.id} saved={saved} />
       ) : null}
 
-      <Link href={href} className="block">
+      <Link href={href} className="block flex-1">
         <div className="relative">
-          <ImageCarousel images={images} alt={listing.title} variant="compact" />
-          <span className="absolute bottom-3 left-3 rounded-lg bg-[var(--surface)]/95 px-3 py-1.5 text-xs font-semibold text-[var(--brand-800)] shadow-sm backdrop-blur">
-            {t(lang, "listing.availableFrom")}:{" "}
-            {formatAvailableFrom(listing.availableFrom)}
+          <ImageCarousel
+            images={images}
+            alt={listing.title}
+            variant="compact"
+          />
+          <span className="price-tag">
+            {listing.priceBirr.toLocaleString()}{" "}
+            <span className="text-xs font-medium text-sky-100/80">
+              birr
+              {listing.dealType === "SALE"
+                ? ""
+                : ` ${t(lang, "search.perMonth")}`}
+            </span>
+          </span>
+          <span className="absolute left-3 top-3 z-10 rounded-full bg-white/95 px-3 py-1 text-xs font-semibold text-[var(--brand-900)] shadow-sm backdrop-blur">
+            {labelForProperty(listing.propertyType)} ·{" "}
+            {t(
+              lang,
+              listing.dealType === "SALE" ? "search.forSale" : "search.forRent",
+            )}
           </span>
         </div>
         <div className="p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h2 className="truncate text-lg font-semibold tracking-tight text-[var(--foreground)] group-hover:text-[var(--brand-800)]">
-                {listing.title}
-              </h2>
-              <p className="mt-1 text-sm text-[var(--muted)]">
-                {listing.neighborhood}
-                {listing.roadName ? `, ${listing.roadName}` : ""} •{" "}
-                {labelForProperty(listing.propertyType)}
-                {listing.bedrooms
-                  ? ` • ${labelForBedrooms(listing.bedrooms)}`
-                  : ""}
-                {listing.furnished ? " • furnished" : ""}
-              </p>
-            </div>
-            <div className="shrink-0 rounded-xl bg-gradient-to-br from-[var(--brand-600)] to-[var(--accent)] px-3 py-2 text-sm font-semibold text-white shadow-sm">
-              {listing.priceBirr.toLocaleString()}{" "}
-              <span className="text-xs font-medium text-blue-50">birr</span>
-            </div>
-          </div>
-          <p className="mt-3 line-clamp-2 text-sm text-slate-700">
+          <h3 className="line-clamp-1 text-lg font-semibold tracking-tight text-[var(--foreground)] transition-colors group-hover:text-[var(--brand-700)]">
+            {listing.title}
+          </h3>
+          <p className="mt-1 flex items-center gap-1.5 text-sm text-[var(--muted)]">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              className="h-4 w-4 shrink-0 text-[var(--brand-500)]"
+              aria-hidden
+            >
+              <path
+                d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11Z"
+                stroke="currentColor"
+                strokeWidth="1.75"
+              />
+              <circle
+                cx="12"
+                cy="10"
+                r="2.5"
+                stroke="currentColor"
+                strokeWidth="1.75"
+              />
+            </svg>
+            <span className="truncate">
+              {listing.neighborhood}
+              {listing.roadName ? `, ${listing.roadName}` : ""}
+            </span>
+          </p>
+          <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-slate-600">
             {listing.description}
           </p>
+          <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-[var(--brand-900)]">
+            {listing.bedrooms && listing.propertyType !== "SHOP" ? (
+              <span className="rounded-full bg-[var(--brand-50)] px-2.5 py-1">
+                {labelForBedrooms(listing.bedrooms)}
+              </span>
+            ) : null}
+            {listing.areaSqm ? (
+              <span className="rounded-full bg-[var(--brand-50)] px-2.5 py-1">
+                {listing.areaSqm} m²
+              </span>
+            ) : null}
+            {listing.furnished ? (
+              <span className="rounded-full bg-[var(--brand-50)] px-2.5 py-1">
+                Furnished
+              </span>
+            ) : null}
+            <span className="rounded-full bg-[var(--brand-50)] px-2.5 py-1">
+              {t(lang, "listing.availableFrom")}:{" "}
+              {formatAvailableFrom(listing.availableFrom)}
+            </span>
+          </div>
         </div>
       </Link>
 
@@ -108,9 +156,18 @@ export function ListingCard({
             size="sm"
           />
           <span className="truncate">
-            {listing.postedBy.role.toLowerCase()} • {listing.postedBy.name}
+            <span className="block font-semibold text-[var(--foreground)]">
+              {listing.postedBy.name}
+            </span>
+            <span className="capitalize">
+              {listing.postedBy.role.toLowerCase()}
+            </span>
           </span>
           {verified ? <VerifiedBadge lang={lang} /> : null}
+          {listing.postedBy.role === "AGENT" &&
+            listing.postedBy.brokerVerified && (
+              <span className="status-pill">Agent approved</span>
+            )}
         </div>
         {profileHref ? (
           <Link

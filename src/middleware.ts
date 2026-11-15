@@ -1,18 +1,30 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const SESSION_COOKIE = "addis_profile_id";
+const SESSION_COOKIE = "addis_session";
 
 /** Routes accessible without signing in. */
 function isPublicPath(pathname: string): boolean {
-  if (pathname === "/" || pathname === "/login" || pathname === "/signup") return true;
+  if (
+    pathname === "/" ||
+    pathname === "/search" ||
+    pathname === "/login" ||
+    pathname === "/signup"
+  )
+    return true;
   // /listings/new (and /listings/new/upgrade) are the posting flow, not a listing
   // detail page — they require a signed-in profile, checked below.
-  if (pathname === "/listings/new" || pathname.startsWith("/listings/new/")) return false;
+  if (pathname === "/listings/new" || pathname.startsWith("/listings/new/"))
+    return false;
   if (/^\/listings\/[^/]+$/.test(pathname)) return true;
   if (/^\/profiles\/[^/]+$/.test(pathname)) return true;
   // Chapa's server-to-server webhook and browser return redirect carry no
   // session cookie of their own — they must bypass the login gate.
+  if (
+    pathname === "/api/auth/google" ||
+    pathname === "/api/auth/google/callback"
+  )
+    return true;
   if (pathname.startsWith("/api/payments/")) return true;
   return false;
 }
@@ -24,13 +36,6 @@ export function middleware(request: NextRequest) {
   if (pathname.startsWith("/onboarding")) {
     if (!session) {
       return NextResponse.redirect(new URL("/login", request.url));
-    }
-    return NextResponse.next();
-  }
-
-  if (pathname.startsWith("/login") || pathname.startsWith("/signup")) {
-    if (session) {
-      return NextResponse.redirect(new URL("/", request.url));
     }
     return NextResponse.next();
   }

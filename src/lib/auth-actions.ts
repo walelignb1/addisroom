@@ -2,21 +2,22 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
+import { headers } from "next/headers";
+import { createSession, readSession, clearSession } from "@/lib/session";
+import { deliverCode } from "@/lib/auth-delivery";
+import { rateLimit } from "@/lib/auth-limits";
 import { OtpChannel, Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   generateOtpCode,
   hashOtpCode,
   MAX_ATTEMPTS,
-  normalizeEmail,
-  normalizePhone,
   otpExpiresAt,
   parseLoginTarget,
 } from "@/lib/otp";
 import { hashPassword, validatePassword, verifyPassword } from "@/lib/password";
 import { isProfileComplete } from "@/lib/profile";
-import { SESSION_COOKIE, getSessionProfileId } from "@/lib/auth";
+import { requireApprovedProfile, getSessionProfileId } from "@/lib/auth";
 
 function redirectAfterAuth(next: string, complete: boolean): never {
   if (!complete) {
@@ -57,28 +58,16 @@ export type SetPasswordResult = { ok: true } | { ok: false; error: string };
 export type LoginPasswordResult = { ok: true } | { ok: false; error: string };
 
 export type LookupAccountResult =
-  | { ok: true; mode: "password" | "signup" }
-  | { ok: false; error: string };
+  { ok: true; mode: "password" | "signup" } | { ok: false; error: string };
 
-async function setSession(profileId: string) {
-  const store = await cookies();
-  store.set(SESSION_COOKIE, profileId, {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 30,
-  });
-}
+const setSession = createSession;
 
 async function findProfileByContact(contact: string) {
-  const trimmed = contact.trim();
-  if (trimmed.includes("@")) {
-    return prisma.profile.findFirst({
-      where: { email: normalizeEmail(trimmed) },
-    });
-  }
-  const phone = normalizePhone(trimmed);
-  return prisma.profile.findFirst({ where: { phone } });
+  const channel = contact.includes("@") ? OtpChannel.EMAIL : OtpChannel.SMS;
+  const { target } = parseLoginTarget(channel, contact);
+  return channel === OtpChannel.EMAIL
+    ? prisma.profile.findUnique({ where: { email: target } })
+    : prisma.profile.findUnique({ where: { phone: target } });
 }
 
 /** Decide whether user signs in with password or starts OTP signup. */
@@ -110,13 +99,19 @@ export async function loginWithPassword(
     const password = String(fd.get("password") ?? "");
     const next = String(fd.get("next") ?? "").trim();
 
-    if (!contact || !password) {
+    if (!contact || !password || password.length > 128) {
       return { ok: false, error: "Email/phone and password are required" };
     }
 
+    const { target: loginTarget } = parseLoginTarget(
+      contact.includes("@") ? OtpChannel.EMAIL : OtpChannel.SMS,
+      contact,
+    );
+    await rateLimit("login", loginTarget, 10, 15 * 60 * 1000);
     const profile = await findProfileByContact(contact);
     if (
       !profile?.passwordHash ||
+      profile.suspendedAt !== null ||
       !verifyPassword(password, profile.passwordHash)
     ) {
       // Same message either way so a failed attempt can't be used to
@@ -124,7 +119,16 @@ export async function loginWithPassword(
       return { ok: false, error: "Invalid email/phone or password" };
     }
 
+    if (!profile.emailVerifiedAt && !profile.phoneVerifiedAt)
+      return {
+        ok: false,
+        error:
+          "Verify your email or phone through registration before signing in.",
+      };
     await setSession(profile.id);
+    if (profile.isAdmin) redirect("/admin");
+    if (profile.identityStatus !== "APPROVED" && profile.profileComplete)
+      redirect("/verification");
     const complete = await profileCompleteForId(profile.id);
     redirectAfterAuth(next, complete);
   } catch (e) {
@@ -146,14 +150,29 @@ export async function sendOtpCode(
   fd: FormData,
 ): Promise<SendOtpResult> {
   try {
-    const name = String(fd.get("name") ?? "").trim() || "Guest";
+    const name = String(fd.get("name") ?? "").trim();
     const channelRaw = String(fd.get("channel") ?? "EMAIL").toUpperCase();
-    const channel =
-      channelRaw === "SMS" ? OtpChannel.SMS : OtpChannel.EMAIL;
+    const channel = channelRaw === "SMS" ? OtpChannel.SMS : OtpChannel.EMAIL;
     const contact = String(fd.get("contact") ?? "").trim();
     if (!contact) return { ok: false, error: "Contact is required" };
 
     const { target } = parseLoginTarget(channel, contact);
+    if (name.length < 2 || name.length > 100)
+      return { ok: false, error: "Enter your full name (2–100 characters)." };
+    const ip =
+      process.env.TRUST_PROXY === "true"
+        ? ((await headers()).get("x-forwarded-for")?.split(",")[0] ?? "local")
+        : "local";
+    await rateLimit("otp-ip", ip, 20, 60 * 60 * 1000);
+    await rateLimit("otp-target", target, 5, 15 * 60 * 1000);
+    const recent = await prisma.otpChallenge.findFirst({
+      where: { target, createdAt: { gt: new Date(Date.now() - 60000) } },
+    });
+    if (recent)
+      return {
+        ok: false,
+        error: "Wait 60 seconds before requesting another code.",
+      };
     const code = generateOtpCode();
 
     await prisma.otpChallenge.deleteMany({
@@ -170,16 +189,16 @@ export async function sendOtpCode(
       },
     });
 
-    console.info(
-      `[AddisRoom OTP] ${channel} → ${target}: ${code} (expires in 10 min)`,
-    );
-
-    return {
-      ok: true,
-      challengeId: challenge.id,
-      previewCode:
-        process.env.NODE_ENV !== "production" ? code : undefined,
-    };
+    try {
+      const delivery = await deliverCode(channel, target, code);
+      await prisma.otpChallenge.deleteMany({
+        where: { target, id: { not: challenge.id } },
+      });
+      return { ok: true, challengeId: challenge.id, ...delivery };
+    } catch (error) {
+      await prisma.otpChallenge.deleteMany({ where: { id: challenge.id } });
+      throw error;
+    }
   } catch (e) {
     console.error("[AddisRoom] sendOtpCode failed:", e);
     return {
@@ -200,7 +219,7 @@ export async function verifyOtpAndLogin(
     const challengeId = String(fd.get("challengeId") ?? "").trim();
     const code = String(fd.get("code") ?? "").trim();
 
-    if (!challengeId || !code) {
+    if (!challengeId || !/^\d{6}$/.test(code)) {
       return { ok: false, error: "Enter the 6-digit verification code" };
     }
 
@@ -240,32 +259,48 @@ export async function verifyOtpAndLogin(
         ? await prisma.profile.findUnique({ where: { phone } })
         : null;
 
-    if (!profile) {
-      profile = await prisma.profile.create({
-        data: {
-          name: challenge.name,
-          phone:
-            phone ??
-            `otp-${challenge.target.replace(/[^a-z0-9]/gi, "").slice(0, 20)}`,
-          email: email ?? null,
-          role: Role.TENANT,
-          verified: true,
+    const verifiedContact =
+      challenge.channel === OtpChannel.EMAIL
+        ? { emailVerifiedAt: new Date() }
+        : { phoneVerifiedAt: new Date() };
+    // Consume the code atomically: parallel requests cannot reuse a successful OTP.
+    profile = await prisma.$transaction(async (tx) => {
+      const consumed = await tx.otpChallenge.deleteMany({
+        where: {
+          id: challengeId,
+          codeHash: hashOtpCode(code),
+          attempts: { lt: MAX_ATTEMPTS },
+          expiresAt: { gt: new Date() },
         },
       });
-    } else {
-      profile = await prisma.profile.update({
-        where: { id: profile.id },
-        data: { name: challenge.name, verified: true },
+      if (consumed.count !== 1)
+        throw new Error("Code already used or expired.");
+      if (profile?.suspendedAt) throw new Error("This account is suspended.");
+      if (profile)
+        return tx.profile.update({
+          where: { id: profile.id },
+          data: verifiedContact,
+        });
+      return tx.profile.create({
+        data: {
+          name: challenge.name,
+          phone: phone ?? null,
+          email: email ?? null,
+          role: Role.TENANT,
+          ...verifiedContact,
+        },
       });
-    }
-
-    await prisma.otpChallenge.delete({ where: { id: challengeId } });
+    });
 
     if (!profile.passwordHash) {
+      await createSession(profile.id, true);
       return { ok: true, needsPassword: true, profileId: profile.id };
     }
 
     await setSession(profile.id);
+    if (profile.isAdmin) redirect("/admin");
+    if (profile.identityStatus !== "APPROVED" && profile.profileComplete)
+      redirect("/verification");
     const next = String(fd.get("next") ?? "").trim();
     const complete = await profileCompleteForId(profile.id);
     redirectAfterAuth(next, complete);
@@ -288,12 +323,14 @@ export async function setPasswordAfterOtp(
   fd: FormData,
 ): Promise<SetPasswordResult> {
   try {
-    const profileId = String(fd.get("profileId") ?? "").trim();
+    const setup = await readSession(true);
+    const profileId = setup?.profileId;
     const password = String(fd.get("password") ?? "");
     const confirm = String(fd.get("confirmPassword") ?? "");
     const next = String(fd.get("next") ?? "").trim();
 
-    if (!profileId) return { ok: false, error: "Session expired. Start again." };
+    if (!profileId)
+      return { ok: false, error: "Session expired. Start again." };
     if (password !== confirm) {
       return { ok: false, error: "Passwords do not match" };
     }
@@ -301,15 +338,21 @@ export async function setPasswordAfterOtp(
     const validationError = validatePassword(password);
     if (validationError) return { ok: false, error: validationError };
 
-    await prisma.profile.update({
-      where: { id: profileId },
+    const changed = await prisma.profile.updateMany({
+      where: { id: profileId, passwordHash: null },
       data: { passwordHash: hashPassword(password) },
     });
+    if (changed.count !== 1)
+      return { ok: false, error: "Password already set. Please sign in." };
+    await clearSession(true);
 
     await setSession(profileId);
     const onboardingNext =
       next.startsWith("/") && !next.startsWith("//") ? next : "/";
-    const qs = onboardingNext !== "/" ? `?next=${encodeURIComponent(onboardingNext)}` : "";
+    const qs =
+      onboardingNext !== "/"
+        ? `?next=${encodeURIComponent(onboardingNext)}`
+        : "";
     redirect(`/onboarding${qs}`);
   } catch (e) {
     if (
@@ -326,14 +369,13 @@ export async function setPasswordAfterOtp(
 }
 
 export async function logout() {
-  const store = await cookies();
-  store.delete(SESSION_COOKIE);
+  await clearSession();
+  await clearSession(true);
   redirect("/login");
 }
 
 export async function toggleSaveListing(listingId: string) {
-  const profileId = await getSessionProfileId();
-  if (!profileId) redirect("/login");
+  const { id: profileId } = await requireApprovedProfile();
 
   const existing = await prisma.savedListing.findUnique({
     where: {
@@ -356,7 +398,8 @@ export async function toggleSaveListing(listingId: string) {
 export async function getSavedListingIds(
   profileId: string | null,
 ): Promise<Set<string>> {
-  if (!profileId) return new Set();
+  if (!profileId || profileId !== (await getSessionProfileId()))
+    return new Set();
   try {
     const rows = await prisma.savedListing.findMany({
       where: { profileId },
